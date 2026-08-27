@@ -188,6 +188,19 @@ let state = {
 
 function jsonToDate(v){ return v ? String(v).slice(0,10) : ""; }
 
+/**
+ * Link Google Drive dari file.getUrl() (…/file/d/FILE_ID/view) itu halaman viewer,
+ * bukan gambar langsung, jadi <img src="..."> gagal load. Fungsi ini extract FILE_ID
+ * dan bikin link thumbnail yang bisa langsung dipakai di <img>. Link asli tetap
+ * dipakai buat <a href> supaya klik gambar tetap buka Drive.
+ */
+function driveThumb(url){
+  if(!url) return url;
+  const m = String(url).match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if(!m) return url;
+  return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w500';
+}
+
 async function loadData(){
   state.loading = true; render();
   if(CONFIG.DEMO_MODE || !CONFIG.APPS_SCRIPT_URL || CONFIG.APPS_SCRIPT_URL.indexOf("PASTE_URL")===0){
@@ -336,7 +349,7 @@ function renderPic(){
       <button onclick="activatePicOutlet()">Lihat Temuan Outlet</button>
     </div>`;
   }
-  const list = state.data.filter(d=> d.Nomor_Outlet.toLowerCase()===state.picOutletActive.toLowerCase());
+  const list = state.data.filter(d=> String(d.Nomor_Outlet).trim().toLowerCase()===String(state.picOutletActive).trim().toLowerCase());
   const s = stats(list);
   return `
   <div class="filters" style="justify-content:space-between;">
@@ -379,7 +392,7 @@ function detailModal(){
       <div style="margin-top:6px;">${d.Keterangan_Perbaikan||"-"}</div>
     </div>
     <div class="photo-row">
-      ${d.Foto_Bukti_Perbaikan_URL?`<a href="${d.Foto_Bukti_Perbaikan_URL}" target="_blank"><img src="${d.Foto_Bukti_Perbaikan_URL}"></a>`:""}
+      ${d.Foto_Bukti_Perbaikan_URL?`<a href="${d.Foto_Bukti_Perbaikan_URL}" target="_blank"><img src="${driveThumb(d.Foto_Bukti_Perbaikan_URL)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a>`:""}
       ${d.Video_Bukti_Perbaikan_URL?`<a class="vid" href="${d.Video_Bukti_Perbaikan_URL}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:var(--charcoal);color:#fff;border-radius:10px;width:90px;height:90px;font-size:26px;">▶</a>`:""}
     </div>`;
   }
@@ -432,7 +445,7 @@ function detailModal(){
       ${stepperHtml(d.Status)}
       <div class="section-label">Deskripsi Temuan</div>
       <div class="desc-box">${d.Deskripsi_Temuan}</div>
-      ${d.Foto_Temuan_URL?`<div class="photo-row"><a href="${d.Foto_Temuan_URL}" target="_blank"><img src="${d.Foto_Temuan_URL}"></a></div>`:""}
+      ${d.Foto_Temuan_URL?`<div class="photo-row"><a href="${d.Foto_Temuan_URL}" target="_blank"><img src="${driveThumb(d.Foto_Temuan_URL)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a></div>`:""}
       ${evidence}
       ${catatanQhse}
       ${picForm}
@@ -497,11 +510,16 @@ async function submitVerify(id, approved){
 function render(){
   const app = document.getElementById('app');
   if(state.loading){ app.innerHTML = `<div class="loading-text">Memuat data audit...</div>`; return; }
-  let html = "";
-  if(state.loadError) html += `<div class="msg err" style="margin-bottom:14px;">${state.loadError}</div>`;
-  html += state.role==="qhse" ? renderQhse() : renderPic();
-  html += detailModal();
-  app.innerHTML = html;
+  try{
+    let html = "";
+    if(state.loadError) html += `<div class="msg err" style="margin-bottom:14px;">${state.loadError}</div>`;
+    html += state.role==="qhse" ? renderQhse() : renderPic();
+    html += detailModal();
+    app.innerHTML = html;
+  }catch(err){
+    console.error('Render error:', err);
+    app.innerHTML = `<div class="msg err" style="margin-bottom:14px;">Terjadi kesalahan saat menampilkan data: ${err.message}. Coba refresh halaman.</div>`;
+  }
 }
 
 document.getElementById('btnRoleQhse').onclick = ()=>{ state.role='qhse'; state.detailId=null; document.getElementById('btnRoleQhse').classList.add('active'); document.getElementById('btnRolePic').classList.remove('active'); render(); };
