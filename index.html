@@ -184,7 +184,10 @@ let state = {
   picOutletInput: "",
   picOutletActive: "",
   detailId: null,
-  formMsg: ""
+  formMsg: "",
+  qhseUnlocked: false,
+  picUnlocked: false,
+  pinError: ""
 };
 
 function jsonToDate(v){ return v ? String(v).slice(0,10) : ""; }
@@ -319,6 +322,16 @@ function filteredQhse(){
 }
 
 function renderQhse(){
+  if(!state.qhseUnlocked && !CONFIG.DEMO_MODE){
+    return `<div class="gate">
+      <div>
+        <label>Masukkan PIN/Password Tim QHSE</label>
+        <input type="password" id="qhsePinInput" placeholder="••••••" onkeydown="if(event.key==='Enter')verifyPin('qhse')">
+      </div>
+      <button onclick="verifyPin('qhse')">Buka Halaman QHSE</button>
+    </div>
+    ${state.pinError?`<div class="msg err" style="margin-top:10px;">${state.pinError}</div>`:""}`;
+  }
   const list = filteredQhse();
   const s = stats(state.data);
   return `
@@ -341,6 +354,16 @@ function renderQhse(){
 }
 
 function renderPic(){
+  if(!state.picUnlocked && !CONFIG.DEMO_MODE){
+    return `<div class="gate">
+      <div>
+        <label>Masukkan Password PIC Outlet</label>
+        <input type="password" id="picPinInput" placeholder="••••••" onkeydown="if(event.key==='Enter')verifyPin('pic')">
+      </div>
+      <button onclick="verifyPin('pic')">Masuk</button>
+    </div>
+    ${state.pinError?`<div class="msg err" style="margin-top:10px;">${state.pinError}</div>`:""}`;
+  }
   if(!state.picOutletActive){
     return `<div class="gate">
       <div>
@@ -372,6 +395,23 @@ function activatePicOutlet(){
   const val = document.getElementById('picOutletInput').value.trim();
   if(!val) return;
   state.picOutletActive = val;
+  render();
+}
+
+async function verifyPin(target){
+  const inputId = target === 'pic' ? 'picPinInput' : 'qhsePinInput';
+  const input = document.getElementById(inputId);
+  const pin = input ? input.value.trim() : "";
+  if(!pin){ state.pinError = "Masukkan PIN/password dulu."; render(); return; }
+  state.pinError = "Memeriksa...";
+  render();
+  const res = await postAction({action:"verify_pin", pin, target});
+  if(res.success){
+    if(target === 'pic') state.picUnlocked = true; else state.qhseUnlocked = true;
+    state.pinError = "";
+  } else {
+    state.pinError = res.error || "PIN/password salah.";
+  }
   render();
 }
 
