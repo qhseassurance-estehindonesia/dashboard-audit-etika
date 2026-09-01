@@ -161,7 +161,8 @@ const STATUS_LABEL = {
   "Open": {label:"Belum Ditindaklanjuti", cls:"open"},
   "Diperbaiki": {label:"Menunggu Verifikasi", cls:"review"},
   "Terverifikasi": {label:"Selesai", cls:"done"},
-  "Ditolak": {label:"Perlu Perbaikan Ulang", cls:"rejected"}
+  "Ditolak": {label:"Perlu Perbaikan Ulang", cls:"rejected"},
+  "Ditolak_Final": {label:"Ditolak (3x) - Eskalasi Manual", cls:"rejected"}
 };
 const STEP_ORDER = ["Open","Diperbaiki","Terverifikasi"];
 
@@ -331,7 +332,7 @@ function renderQhse(){
   <div class="filters">
     <input type="text" placeholder="Cari outlet..." value="${state.outletFilter}" oninput="state.outletFilter=this.value;render()">
     <div class="pill-filter">
-      ${["all","Open","Diperbaiki","Terverifikasi","Ditolak"].map(st=>`<button class="${state.statusFilter===st?'active':''}" onclick="state.statusFilter='${st}';render()">${st==="all"?"Semua":STATUS_LABEL[st].label}</button>`).join("")}
+      ${["all","Open","Diperbaiki","Terverifikasi","Ditolak","Ditolak_Final"].map(st=>`<button class="${state.statusFilter===st?'active':''}" onclick="state.statusFilter='${st}';render()">${st==="all"?"Semua":STATUS_LABEL[st].label}</button>`).join("")}
     </div>
   </div>
   <div class="list">
@@ -383,26 +384,54 @@ function detailModal(){
   if(!d) return "";
   const canPicSubmit = state.role==="pic" && (d.Status==="Open" || d.Status==="Ditolak");
   const canQhseVerify = state.role==="qhse" && d.Status==="Diperbaiki";
+  const percobaanKe = Number(d.Percobaan_Ke) || 0;
 
-  let evidence = "";
-  if(d.Foto_Bukti_Perbaikan_URL || d.Video_Bukti_Perbaikan_URL){
-    evidence = `<div class="section-label">Bukti Perbaikan dari PIC</div>
+  function roundSuf(n){ return n===1 ? "" : "_"+n; }
+
+  // Bangun riwayat semua percobaan yang sudah pernah diisi (maks 3)
+  let historyHtml = "";
+  for(let n=1; n<=3; n++){
+    const suf = roundSuf(n);
+    const namaPic = d["Nama_PIC"+suf];
+    if(!namaPic) continue; // percobaan ini belum pernah diisi
+
+    const tgl = d["Tanggal_Perbaikan"+suf];
+    const ket = d["Keterangan_Perbaikan"+suf];
+    const foto = d["Foto_Bukti_Perbaikan_URL"+suf];
+    const video = d["Video_Bukti_Perbaikan_URL"+suf];
+    const hasil = d["Hasil"+suf];
+    const catatan = d["Catatan_QHSE"+suf];
+    const verifikator = d["Verifikator"+suf];
+    const tglVerif = d["Tanggal_Verifikasi"+suf];
+
+    let hasilBadge = "";
+    if(hasil==="Diterima") hasilBadge = `<span class="badge done">Diterima</span>`;
+    else if(hasil==="Ditolak") hasilBadge = `<span class="badge rejected">Ditolak</span>`;
+    else hasilBadge = `<span class="badge review">Menunggu Verifikasi</span>`;
+
+    historyHtml += `
     <div class="desc-box" style="margin-bottom:8px;">
-      <div><strong>${d.Nama_PIC||"-"}</strong> · ${jsonToDate(d.Tanggal_Perbaikan)}</div>
-      <div style="margin-top:6px;">${d.Keterangan_Perbaikan||"-"}</div>
-    </div>
-    <div class="photo-row">
-      ${d.Foto_Bukti_Perbaikan_URL?`<a href="${d.Foto_Bukti_Perbaikan_URL}" target="_blank"><img src="${driveThumb(d.Foto_Bukti_Perbaikan_URL)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a>`:""}
-      ${d.Video_Bukti_Perbaikan_URL?`<a class="vid" href="${d.Video_Bukti_Perbaikan_URL}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:var(--charcoal);color:#fff;border-radius:10px;width:90px;height:90px;font-size:26px;">▶</a>`:""}
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        <strong>Percobaan ke-${n}${n===3?" (terakhir)":""} · ${namaPic}</strong>
+        ${hasilBadge}
+      </div>
+      <div style="color:var(--gray);font-size:11.5px;margin-top:2px;">${jsonToDate(tgl)}</div>
+      <div style="margin-top:6px;">${ket||"-"}</div>
+      <div class="photo-row">
+        ${foto?`<a href="${foto}" target="_blank"><img src="${driveThumb(foto)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a>`:""}
+        ${video?`<a class="vid" href="${video}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:var(--charcoal);color:#fff;border-radius:10px;width:90px;height:90px;font-size:26px;">▶</a>`:""}
+      </div>
+      ${catatan?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);"><strong style="font-size:12px;">Catatan QHSE:</strong> ${catatan}<div style="color:var(--gray);font-size:11px;margin-top:2px;">— ${verifikator||"-"}, ${jsonToDate(tglVerif)}</div></div>`:""}
     </div>`;
   }
-
-  let catatanQhse = d.Catatan_QHSE ? `<div class="section-label">Catatan QHSE</div><div class="desc-box">${d.Catatan_QHSE}<div style="margin-top:6px;color:var(--gray);font-size:11.5px;">— ${d.Verifikator||"-"}, ${jsonToDate(d.Tanggal_Verifikasi)}</div></div>` : "";
+  const evidence = historyHtml ? `<div class="section-label">Riwayat Perbaikan (${percobaanKe}/3 percobaan)</div>${historyHtml}` : "";
 
   let picForm = "";
   if(canPicSubmit){
+    const nextAttempt = percobaanKe + 1;
     picForm = `
-    <div class="section-label">Upload Bukti Perbaikan</div>
+    <div class="section-label">Upload Bukti Perbaikan — Percobaan ke-${nextAttempt}</div>
+    ${nextAttempt===3?`<div class="msg" style="background:var(--amber-soft);color:var(--amber);margin-bottom:10px;">Ini percobaan terakhir (3/3). Kalau ditolak lagi, temuan ini perlu ditindaklanjuti manual langsung dengan tim QHSE.</div>`:""}
     <div class="form-field"><label>Nama PIC Outlet</label><input type="text" id="f_nama_pic" placeholder="Nama lengkap"></div>
     <div class="form-field"><label>Tanggal Perbaikan</label><input type="date" id="f_tanggal" value="${new Date().toISOString().slice(0,10)}"></div>
     <div class="form-field"><label>Keterangan Perbaikan</label><textarea id="f_keterangan" placeholder="Jelaskan tindakan perbaikan yang sudah dilakukan..."></textarea></div>
@@ -424,7 +453,7 @@ function detailModal(){
   let qhseForm = "";
   if(canQhseVerify){
     qhseForm = `
-    <div class="section-label">Verifikasi Perbaikan</div>
+    <div class="section-label">Verifikasi Perbaikan — Percobaan ke-${percobaanKe}</div>
     <div class="form-field"><label>Nama Verifikator</label><input type="text" id="v_nama" placeholder="Nama Anda"></div>
     <div class="form-field"><label>Catatan (wajib jika ditolak)</label><textarea id="v_catatan" placeholder="Catatan untuk PIC outlet..."></textarea></div>
     <div class="btn-row">
@@ -433,6 +462,11 @@ function detailModal(){
     </div>
     <div id="formMsgBox">${state.formMsg}</div>
     `;
+  }
+
+  let finalNotice = "";
+  if(d.Status==="Ditolak_Final"){
+    finalNotice = `<div class="msg err">Temuan ini sudah ditolak 3x berturut-turut. Dashboard tidak lagi menerima upload baru dari sini — perlu ditindaklanjuti manual (tatap muka / WA / dsb) dengan tim QHSE.</div>`;
   }
 
   return `<div class="overlay" onclick="if(event.target===this)closeDetail()">
@@ -447,7 +481,7 @@ function detailModal(){
       <div class="desc-box">${d.Deskripsi_Temuan}</div>
       ${d.Foto_Temuan_URL?`<div class="photo-row"><a href="${d.Foto_Temuan_URL}" target="_blank"><img src="${driveThumb(d.Foto_Temuan_URL)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a></div>`:""}
       ${evidence}
-      ${catatanQhse}
+      ${finalNotice}
       ${picForm}
       ${qhseForm}
     </div>
