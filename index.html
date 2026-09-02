@@ -43,7 +43,7 @@ button{font-family:inherit;cursor:pointer;}
 .wrap{max-width:1080px;margin:0 auto;padding:22px 18px 60px;}
 
 /* Stat cards */
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px;}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px 12px;}
 .stat .n{font-family:'Space Grotesk',sans-serif;font-size:24px;font-weight:700;}
 .stat .l{font-size:11.5px;color:var(--gray);margin-top:2px;}
@@ -107,7 +107,7 @@ button{font-family:inherit;cursor:pointer;}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;}
 .info-grid .k{color:var(--gray);font-size:11.5px;}
 .info-grid .v{font-weight:600;}
-.desc-box{background:var(--cream);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5;}
+.desc-box{background:var(--cream);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;}
 .photo-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
 .photo-row a img, .photo-row .vid{width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line);}
 .form-field{margin-bottom:12px;}
@@ -265,12 +265,13 @@ async function postAction(payload){
 }
 
 function stats(list){
-  const s = {total:list.length, open:0, review:0, done:0, rejected:0};
+  const s = {total:list.length, open:0, review:0, done:0, rejected:0, final:0};
   list.forEach(d=>{
     if(d.Status==="Open") s.open++;
     else if(d.Status==="Diperbaiki") s.review++;
     else if(d.Status==="Terverifikasi") s.done++;
     else if(d.Status==="Ditolak") s.rejected++;
+    else if(d.Status==="Ditolak_Final") s.final++;
   });
   return s;
 }
@@ -346,7 +347,8 @@ function renderQhse(){
     <div class="stat open"><div class="n">${s.open}</div><div class="l">Belum Ditindaklanjuti</div></div>
     <div class="stat review"><div class="n">${s.review}</div><div class="l">Menunggu Verifikasi</div></div>
     <div class="stat done"><div class="n">${s.done}</div><div class="l">Selesai</div></div>
-    <div class="stat"><div class="n" style="color:var(--red)">${s.rejected}</div><div class="l">Ditolak / Perlu Ulang</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${s.rejected}</div><div class="l">Perlu Perbaikan Ulang</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${s.final}</div><div class="l">Ditolak 3x - Eskalasi Manual</div></div>
   </div>
   <div class="filters">
     <input type="text" placeholder="Cari outlet..." value="${state.outletFilter}" oninput="state.outletFilter=this.value;render()">
@@ -394,6 +396,8 @@ function renderPic(){
     <div class="stat open"><div class="n">${s.open}</div><div class="l">Perlu Ditindaklanjuti</div></div>
     <div class="stat review"><div class="n">${s.review}</div><div class="l">Menunggu Verifikasi</div></div>
     <div class="stat done"><div class="n">${s.done}</div><div class="l">Selesai</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${s.rejected}</div><div class="l">Perlu Perbaikan Ulang</div></div>
+    <div class="stat"><div class="n" style="color:var(--red)">${s.final}</div><div class="l">Ditolak 3x - Eskalasi Manual</div></div>
   </div>
   <div class="list">
     ${list.length? list.map(findingCard).join("") : `<div class="empty"><div class="big">🍃</div>Belum ada temuan untuk outlet ini.</div>`}
@@ -495,12 +499,12 @@ function detailModal(){
     <div class="form-field">
       <label>Foto Bukti (maks 5MB)</label>
       <div class="file-drop" id="dropFoto" onclick="document.getElementById('f_foto').click()">📷 Ketuk untuk pilih foto</div>
-      <input type="file" id="f_foto" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this,'dropFoto','📷')">
+      <input type="file" id="f_foto" accept="image/*" style="display:none" onchange="handleFile(this,'dropFoto','📷')">
     </div>
     <div class="form-field">
       <label>Video Bukti (opsional, maks 15MB)</label>
       <div class="file-drop" id="dropVideo" onclick="document.getElementById('f_video').click()">🎥 Ketuk untuk pilih video</div>
-      <input type="file" id="f_video" accept="video/*" capture="environment" style="display:none" onchange="handleFile(this,'dropVideo','🎥')">
+      <input type="file" id="f_video" accept="video/*" style="display:none" onchange="handleFile(this,'dropVideo','🎥')">
     </div>
     <button class="btn-primary" onclick="submitPerbaikan('${d.ID}')">Kirim Bukti Perbaikan</button>
     <div id="formMsgBox">${state.formMsg}</div>
