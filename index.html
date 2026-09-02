@@ -107,7 +107,8 @@ button{font-family:inherit;cursor:pointer;}
 .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;}
 .info-grid .k{color:var(--gray);font-size:11.5px;}
 .info-grid .v{font-weight:600;}
-.desc-box{background:var(--cream);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;}
+.desc-box{background:var(--cream);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.5;}
+.freetext{white-space:pre-wrap;}
 .photo-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
 .photo-row a img, .photo-row .vid{width:90px;height:90px;object-fit:cover;border-radius:10px;border:1px solid var(--line);}
 .form-field{margin-bottom:12px;}
@@ -194,6 +195,16 @@ let state = {
 };
 
 function jsonToDate(v){ return v ? String(v).slice(0,10) : ""; }
+
+/**
+ * Rapetin baris kosong berlebih dari teks yang diketik user (misal enter berkali-kali),
+ * maksimal 1 baris kosong di antara paragraf, biar tampilan nggak boros space
+ * tapi paragraf yang beneran dipisah tetap kebawa.
+ */
+function formatText(s){
+  if(!s) return s;
+  return String(s).replace(/\n{3,}/g, '\n\n').trim();
+}
 
 /**
  * Link Google Drive dari file.getUrl() (…/file/d/FILE_ID/view) itu halaman viewer,
@@ -477,12 +488,12 @@ function detailModal(){
         ${hasilBadge}
       </div>
       <div style="color:var(--gray);font-size:11.5px;margin-top:2px;">${jsonToDate(tgl)}</div>
-      <div style="margin-top:6px;">${ket||"-"}</div>
+      <div class="freetext" style="margin-top:6px;">${formatText(ket)||"-"}</div>
       <div class="photo-row">
         ${foto?`<a href="${foto}" target="_blank"><img src="${driveThumb(foto)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a>`:""}
         ${video?`<a class="vid" href="${video}" target="_blank" style="display:flex;align-items:center;justify-content:center;background:var(--charcoal);color:#fff;border-radius:10px;width:90px;height:90px;font-size:26px;">▶</a>`:""}
       </div>
-      ${catatan?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);"><strong style="font-size:12px;">Catatan QHSE:</strong> ${catatan}<div style="color:var(--gray);font-size:11px;margin-top:2px;">— ${verifikator||"-"}, ${jsonToDate(tglVerif)}</div></div>`:""}
+      ${catatan?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);"><strong style="font-size:12px;">Catatan QHSE:</strong> <span class="freetext">${formatText(catatan)}</span><div style="color:var(--gray);font-size:11px;margin-top:2px;">— ${verifikator||"-"}, ${jsonToDate(tglVerif)}</div></div>`:""}
     </div>`;
   }
   const evidence = historyHtml ? `<div class="section-label">Riwayat Perbaikan (${percobaanKe}/3 percobaan)</div>${historyHtml}` : "";
@@ -539,7 +550,7 @@ function detailModal(){
       <div style="display:flex;gap:6px;margin-bottom:10px;">${badgeHtml(d.Status)}${riskBadge(d.Tingkat_Risiko)}<span class="badge" style="background:var(--cream);color:var(--gray);">${d.Kategori_Temuan}</span></div>
       ${stepperHtml(d.Status)}
       <div class="section-label">Deskripsi Temuan</div>
-      <div class="desc-box">${d.Deskripsi_Temuan}</div>
+      <div class="desc-box freetext">${formatText(d.Deskripsi_Temuan)}</div>
       ${d.Foto_Temuan_URL?`<div class="photo-row"><a href="${d.Foto_Temuan_URL}" target="_blank"><img src="${driveThumb(d.Foto_Temuan_URL)}" loading="lazy" onerror="this.parentElement.innerHTML='📷 Lihat foto'"></a></div>`:""}
       ${evidence}
       ${finalNotice}
